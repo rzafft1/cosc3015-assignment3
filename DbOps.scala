@@ -1,5 +1,6 @@
 
-object DbOps.scala
+
+object testing
 {
 def main (Args: Array[String]) = 
 {
@@ -32,20 +33,27 @@ val emps = List(
 
 type Table = List[Tuple]
 
-def project (table: Table, colPred: (Int) => Boolean): Table = 
+// PROJECT /////////////////////////////////////////////////////////////////////
+def project(table: Table, colPred: (Int) => Boolean) : Table =
 {
-    def editRow (row: Tuple, n: Int): Tuple = 
+    def getCol (col_index: List[Int], row: Tuple): Tuple = 
     {
-        row match 
-            case EmptyTuple => EmptyTuple
-            case head *: tail if colPred(n) => tail
-            case head *: tail => head *: editRow(tail, n + 1)
+        col_index match
+            case Nil => EmptyTuple
+            case first :: rest => if colPred(first) then row.productElement(first) *: getCol(rest,row) else getCol(rest,row)
     }
-    table match
-        case Nil => Nil // Handle the case when the list is empty
-        case head :: tail => editRow(head.asInstanceOf[Tuple], 0) :: project(tail, colPred)
+    def getIndices(list: Tuple, i: Int): List[Int] = 
+    {
+        list match 
+            case EmptyTuple => Nil
+            case head*:tail => i :: getIndices((tail), i+1)
+    }
+    table match 
+        case Nil => Nil
+        case head :: tail => getCol(getIndices(head,0),head) :: project(tail, colPred)
 }
 
+// SELECT //////////////////////////////////////////////////////////////////////
 def select(table: Table, rowPred: (Tuple) => Boolean) : Table =
 {
     table match
@@ -54,7 +62,7 @@ def select(table: Table, rowPred: (Tuple) => Boolean) : Table =
         case _ :: tail => select(tail, rowPred)
 }
 
-
+// JOIN ////////////////////////////////////////////////////////////////////////
 def join(lhs: Table, rhs: Table, theta: (Tuple, Tuple) => Boolean): Table =
 {
     def joinHead(lhsHead: Tuple, rhs: Table): Table = 
@@ -69,18 +77,24 @@ def join(lhs: Table, rhs: Table, theta: (Tuple, Tuple) => Boolean): Table =
         case lhsHead :: lhsTail => joinHead(lhsHead, rhs) ::: join(lhsTail, rhs, theta)
 }
 
+// QUERIES /////////////////////////////////////////////////////////////////////
+
 def selectRows[A](idx: Int, pred: (A) => Boolean): (Tuple) => Boolean = (row) => pred(row.productElement(idx).asInstanceOf[A])
 def equiJoin[A](idx1:Int, idx2:Int): (Tuple, Tuple) => Boolean = (left, right) => left.productElement(idx1) == right.productElement(idx2)
 
 
-println("project test 1 -> remove column 1         : " + project(emps, cond => cond == 1))
+// testing /////////////////////////////////////////////////////////////////////
+println("project test 1 -> keep cols 1 & 2         : " + project(emps, col => col == 1 || col == 2))
+println("project test 1 -> keep all cols exept 2   : " + project(emps, col => col != 3))
 println("select test 1  -> select age == 21        : " + select(emps, row => row.productElement(2).asInstanceOf[Int] == 21))
 println("select test 2  -> select salary > 100,000 : " + select(emps, row => row.productElement(3).asInstanceOf[Double] > 90000))
 println("select test 3  -> select name == ryan     : " + select(emps, row => row.productElement(1).asInstanceOf[String] == "Ryan"))
 println("join test 1    -> match id's              : " + join(depts, emps, (L, R) => L.productElement(0).asInstanceOf[Int] == R.productElement(0).asInstanceOf[Int]))
 
-println("select test 0  -> select name == ryan     : " + select(emps, selectRows(1, (x: String) => x == "Ryan")))
+println("select test 0  -> select name == ryan     : " + select(emps, selectRows(1, x => x == "Ryan")))
 println("join test 0    -> match id's              : " + join(depts, emps, equiJoin(0,0)))
+
+
 
 
 }
